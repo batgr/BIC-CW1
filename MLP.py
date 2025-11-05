@@ -13,15 +13,20 @@ class Neuron:
         out = self.activation(z)
         return out
 
+class Layer:
+    def __init__(self,inputs,n_neurons,activation):
+        self.n_neurons =n_neurons
+        self.activation = activation
+        self.inputs = inputs
+        self.n_neurons = [Neuron(self.inputs,self.activation) for _ in range(self.n_neurons)]
+    
+    def output(self):
+        outs = [n.output for n in self.n_neurons]
+        return outs
+        
 
 def sigmoid(z):
     return 1 / (1 + np.exp(-z))
 
 
-neuron = Neuron([1.0,2.0,3.0],sigmoid)
 
-print(neuron.inputs)
-print(neuron.n_inputs)
-print(neuron.bias)
-print(neuron.weights)
-print(neuron.output())
