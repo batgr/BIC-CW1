@@ -1,16 +1,15 @@
 import numpy as np
 class Neuron:
     
-    def __init__(self,inputs):
+    def __init__(self,inputs,activation):
         self.inputs = inputs
         self.n_inputs = len(inputs)
         self.bias = np.random.uniform(-1,1)
-        self.weight = [np.random.uniform(-1,1) for _ in range(self.n_inputs)]
+        self.weights = [np.random.uniform(-1,1) for _ in range(self.n_inputs)]
+        self.activation = activation
 
+    def output(self):
+        z = sum((x*w for x,w in zip(self.inputs,self.weights)),self.bias)
+        out = self.activation(z)
+        return
 
-
-neuron = Neuron([1.0,2.0,3.0])
-print(neuron.inputs)
-print(neuron.bias)
-print(neuron.weight)
-    
