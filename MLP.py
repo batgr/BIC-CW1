@@ -33,12 +33,7 @@ class MLP:
             out = layer.output(out)
         return out
     
-    def get_weigths(self):
-        weigths = []
-        for layer in self.layers:
-            for neuron in layer.neurons:
-                weigths += neuron.weights + [neuron.bias]
-        return weigths
+    
             
 
 def sigmoid(z):
