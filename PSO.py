@@ -3,8 +3,8 @@ import numpy as np
 class Particle:
     def __init__(self,swarmsize,dim):
         self.dim = dim
-        self.pos = np.array([np.random.uniform(-swarmsize,swarmsize) for _ in range(dim)])
-        self.velocity = np.array([np.random.uniform(-swarmsize,swarmsize) for _ in range(dim)])
+        self.pos = np.array([np.random.uniform(-1,1) for _ in range(dim)])
+        self.velocity = np.array([np.random.uniform(-1,1) for _ in range(dim)])
         
         self.best_pos = self.pos.copy()
         self.best_fit = None
@@ -40,9 +40,7 @@ class Particle:
                                         p3*(global_best_pos[i]-pos) + 
                                         p2*(best_informant_pos[i]-pos)
                                         )
-        
-        
-       
+              
         
 class PSO:
     def __init__(self,swarmsize,alpha,beta,gamma,sigma,epsilon,assess_fitness,dim,iter,n_informants):
@@ -78,7 +76,7 @@ class PSO:
             for particle in self.swarm:
                 particle.pos = particle.pos+ self.e*particle.velocity
             
-        return self.global_best_pos,self.global_best_fit
+        return self.global_best_pos
     
     def update_global_best(self):
         for particle in self.swarm:
