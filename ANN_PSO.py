@@ -1,5 +1,6 @@
 import numpy as np
-from PSO import PSO
+from PSO import pso
+
 
 class Neuron:
     
@@ -7,11 +8,7 @@ class Neuron:
         self.n_inputs = n_inputs
         self.bias = None
         self.weights = None
-        activations = {
-            "logistic":self.logistic,
-            "relu":self.relu,
-            "hyperbolic_tangent":self.hyperbolic_tangent,
-            "linear":self.linear}
+        activations = {"logistic":self.logistic,"relu":self.relu,"tanh":self.hyperbolic_tangent,"linear":self.linear}
         self.activation = activations[activation]
 
     def output(self,inputs):
@@ -19,112 +16,103 @@ class Neuron:
         out = self.activation(z)
         return out
     
-    def set_params(self,weights,bias):
-        self.weights = np.array(weights)
-        self.bias = bias
-    
     def logistic(self,z):
-        return 1 / (1 + np.exp(-np.clip(z, -500, 500)))
+        return 1 / (1 + np.exp(-z))
     def relu(self,z):
         return np.maximum(0, z)
     def hyperbolic_tangent(self,z):
         return np.tanh(z)
     def linear(self,z):
         return z
+
 class Layer:
     def __init__(self,n_inputs,n_neurons,activation):
         
         self.neurons = [Neuron(n_inputs,activation) for _ in range(n_neurons)]
-        self.n_inputs = n_inputs
     
     def output(self,inputs):
-        outs = np.column_stack([n.output(inputs) for n in self.neurons])
+        outs =  np.column_stack([n.output(inputs) for n in self.neurons])
         return outs
-class MLP:
-    def __init__(self,n_nodes_layer,n_inputs,hidden_activation, output_activation):
-        
-        dim = [n_inputs] + n_nodes_layer
-        self.layers = []
-        for n_i, n_o in zip(dim[:-2], dim[1:-1]):
-            self.layers.append(Layer(n_i, n_o, hidden_activation))
-
-        self.layers.append(Layer(dim[-2], dim[-1], output_activation))
-        self.n_params = sum((n_i + 1) * n_o for n_i, n_o in zip(dim[:-1], dim[1:]))
-
-    def output(self,inputs):
-        out = inputs
-        for layer in self.layers:
-            out = layer.output(out)
-        return out
-    
-    def set_params(self,params):
-         idx = 0
-         for layer in self.layers:
-            for neuron in layer.neurons:
-                weights = params[idx : idx + layer.n_inputs]
-                idx += layer.n_inputs
-                bias = params[idx]
-                idx += 1
-                neuron.set_params(weights, bias)
-    
-
 
 class ANN_PSO:
-    def __init__(self,n_nodes_layer,hidden_activation, output_activation,swarmsize,alpha,beta,gamma,sigma,epsilon,iter,n_informants,metric,low=-2.0, high=2.0):
+    def __init__(self,n_nodes_layer,hidden_activation, output_activation,swarmsize,n_iter,alpha,beta,gamma,sigma,epsilon,min_bound,max_bound):
         self.n_nodes_layer = n_nodes_layer
         self.hidden_activation = hidden_activation
         self.output_activation = output_activation
         self.swarmsize = swarmsize
-        self.alpha=alpha
+        self.n_iter = n_iter
+        self.alpha = alpha
         self.beta = beta
         self.gamma = gamma
         self.sigma = sigma
         self.epsilon = epsilon
-        self.iter = iter
-        self.n_informants = n_informants
-        self.mlp = None
-        self.pso = None
+        self.min_bound = min_bound
+        self.max_bound = max_bound
+        self.layers = None
         self.y = None
         self.X = None
-        metrics = {"mse":self.mse,"rmse":self.rmse}
-        self.metric = metrics[metric]
-        
     
-    def assess_fitness(self,params):
-        self.mlp.set_params(params)
-        out = self.mlp.output(self.X)
-        return -self.metric(out)
+    def output(self,X):
+        out = X
+        for layer in self.layers:
+            out = layer.output(out)
+        return out
+    
+    def init_layers(self,dim_layers):
+        
+        n_layers = len(dim_layers) - 1
+        
+        self.layers = []
+        
+        for i in range(n_layers):
+            n_i = dim_layers[i]
+            n_o = dim_layers[i + 1]
+            
+            if i == n_layers - 1:
+                activation = self.output_activation
+            else:
+                activation = self.hidden_activation
+            
+            self.layers.append(Layer(n_i, n_o, activation))
+    
+    def init_params(self,params):
+        i = 0
+        for layer in self.layers:
+            for neuron in layer.neurons:
+                n_inputs = neuron.n_inputs
+                weights = params[i:n_inputs+i]
+                bias = params[n_inputs+i]
+                neuron.weights = np.array(weights)
+                neuron.bias = float(bias)
+                i+=n_inputs+1
+                
     
     def fit(self,X,y):
-        if y.ndim == 1:
-            y = y.reshape(-1, 1)
+        self.X = X
         self.y = y
-        self.X=X
-        n_inputs = X.shape[1]
-        self.mlp = MLP(self.n_nodes_layer,n_inputs,self.hidden_activation,self.output_activation)
-        dim = self.mlp.n_params
         
-        pso = PSO(
-            self.swarmsize,-5,5,self.alpha,self.beta,
-            self.gamma,self.sigma,self.epsilon,
-            self.assess_fitness,dim,self.iter,
-            self.n_informants)
-        params = pso.optimize()
-        self.mlp.set_params(params)
-       
-    def mse(self,preds):
-        return np.mean(np.square(preds - self.y))
-    
-    def rmse(self,preds):
-        return np.sqrt(self.mse(preds))
+        n_inputs = X.shape[1]
+        
+        dim_layers =[n_inputs] + self.n_nodes_layer
+        self.init_layers(dim_layers)
+        
+        dim = sum((i+1)*j for i,j in zip(dim_layers[:-1],dim_layers[1:]))
+        params_opt = pso(self.swarmsize,dim,self.n_iter,self.alpha,self.beta,self.gamma,self.sigma,self.epsilon,self.min_bound,self.max_bound,self.assess_fitness)
+        self.init_params(params_opt)
         
     
     def predict(self,X):
-       
-        return self.mlp.output(X)
-
-
-
+        return self.output(X) 
+    
+    def assess_fitness(self,params):
+        self.init_params(params)
+        preds = self.output(self.X)
+        return -self.mse(preds)
+    
+    def mse(self,preds):
+         return np.mean(np.square(preds - self.y))
+        
+        
 
 
 
