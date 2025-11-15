@@ -7,7 +7,11 @@ class Neuron:
         self.n_inputs = n_inputs
         self.bias = None
         self.weights = None
-        activations = {"logistic":self.logistic,"relu":self.relu,"hyperbolic_tangent":self.hyperbolic_tangent}
+        activations = {
+            "logistic":self.logistic,
+            "relu":self.relu,
+            "hyperbolic_tangent":self.hyperbolic_tangent,
+            "linear":self.linear}
         self.activation = activations[activation]
 
     def output(self,inputs):
@@ -25,6 +29,8 @@ class Neuron:
         return np.maximum(0, z)
     def hyperbolic_tangent(self,z):
         return np.tanh(z)
+    def linear(self,z):
+        return z
 class Layer:
     def __init__(self,n_inputs,n_neurons,activation):
         
@@ -35,33 +41,39 @@ class Layer:
         outs = np.column_stack([n.output(inputs) for n in self.neurons])
         return outs
 class MLP:
-    def __init__(self,n_nodes_layer,inputs,activation):
-        self.inputs = inputs
-        dim = [inputs.shape[1]] + n_nodes_layer
-        self.layers = [Layer(n_i,n_o,activation) for n_i,n_o in zip(dim[:-1],dim[1:])]
+    def __init__(self,n_nodes_layer,n_inputs,hidden_activation, output_activation):
+        
+        dim = [n_inputs] + n_nodes_layer
+        self.layers = []
+        for n_i, n_o in zip(dim[:-2], dim[1:-1]):
+            self.layers.append(Layer(n_i, n_o, hidden_activation))
+
+        self.layers.append(Layer(dim[-2], dim[-1], output_activation))
         self.n_params = sum((n_i + 1) * n_o for n_i, n_o in zip(dim[:-1], dim[1:]))
 
-    def output(self):
-        out = self.inputs
+    def output(self,inputs):
+        out = inputs
         for layer in self.layers:
             out = layer.output(out)
         return out
     
     def set_params(self,params):
-         i = 0
+         idx = 0
          for layer in self.layers:
             for neuron in layer.neurons:
-                w = params[i : i + layer.n_inputs]
-                b = params[i + layer.n_inputs]
-                neuron.set_params(w, b)
-                i += layer.n_inputs + 1
+                weights = params[idx : idx + layer.n_inputs]
+                idx += layer.n_inputs
+                bias = params[idx]
+                idx += 1
+                neuron.set_params(weights, bias)
     
 
 
 class ANN_PSO:
-    def __init__(self,n_nodes_layer,activation,swarmsize,alpha,beta,gamma,sigma,epsilon,iter,n_informants,metric):
+    def __init__(self,n_nodes_layer,hidden_activation, output_activation,swarmsize,alpha,beta,gamma,sigma,epsilon,iter,n_informants,metric,low=-2.0, high=2.0):
         self.n_nodes_layer = n_nodes_layer
-        self.activation = activation
+        self.hidden_activation = hidden_activation
+        self.output_activation = output_activation
         self.swarmsize = swarmsize
         self.alpha=alpha
         self.beta = beta
@@ -73,24 +85,27 @@ class ANN_PSO:
         self.mlp = None
         self.pso = None
         self.y = None
+        self.X = None
         metrics = {"mse":self.mse,"rmse":self.rmse}
         self.metric = metrics[metric]
         
     
     def assess_fitness(self,params):
         self.mlp.set_params(params)
-        out = self.mlp.output()
+        out = self.mlp.output(self.X)
         return -self.metric(out)
     
     def fit(self,X,y):
         if y.ndim == 1:
             y = y.reshape(-1, 1)
         self.y = y
-        self.mlp = MLP(self.n_nodes_layer,X,self.activation)
+        self.X=X
+        n_inputs = X.shape[1]
+        self.mlp = MLP(self.n_nodes_layer,n_inputs,self.hidden_activation,self.output_activation)
         dim = self.mlp.n_params
         
         pso = PSO(
-            self.swarmsize,self.alpha,self.beta,
+            self.swarmsize,-5,5,self.alpha,self.beta,
             self.gamma,self.sigma,self.epsilon,
             self.assess_fitness,dim,self.iter,
             self.n_informants)
@@ -105,20 +120,9 @@ class ANN_PSO:
         
     
     def predict(self,X):
-        self.mlp.inputs = X
-        return self.mlp.output()
+       
+        return self.mlp.output(X)
 
-
-X = np.array([[0,0],
-              [0,1],
-              [1,0],
-              [1,1]])
-
-y = np.array([[0], [1], [1], [0]])
-
-ann_pso = ANN_PSO([4,1],"logistic",50,0.7,1.5,1.5,1.5,1.0,1000,3,"mse")
-ann_pso.fit(X,y)
-print(ann_pso.predict(X))
 
 
 

@@ -5,7 +5,7 @@ class Neuron:
         self.n_inputs = n_inputs
         self.bias = np.random.uniform(-1,1)
         self.weights = [np.random.uniform(-1,1) for _ in range(n_inputs)]
-        activations = {"logistic":self.logistic,"relu":self.relu,"hyperbolic_tangent":self.hyperbolic_tangent}
+        activations = {"logistic":self.logistic,"relu":self.relu,"hyperbolic_tangent":self.hyperbolic_tangent,"linear":self.linear}
         self.activation = activations[activation]
 
     def output(self,inputs):
@@ -19,6 +19,8 @@ class Neuron:
         return np.maximum(0, z)
     def hyperbolic_tangent(self,z):
         return np.tanh(z)
+    def linear(self,z):
+        return z
 
 class Layer:
     def __init__(self,n_inputs,n_neurons,activation):
